@@ -77,22 +77,22 @@ it('NULL_DATA() should be deterministic', function () {
 })
 
 it('multiSign() for x-of-5 should be deterministic', function () {
-  var privKeysWIF = [
+  const privKeysWIF = [
     'cT3PtbJfU3VVDR9xp667eqqojDhytDbLGkEjTVZ9fDjXYr73FUE4',
     'cNHYho4iuSjiTwR9J56g5HT9SbkXP5Fs2Pq4qM97FTpjGT4psJ4u',
     'cUgD3WxGu6WFC2yyFv6jubxcHGkid62sp77M5HE2aYgsj6FcFcyW',
     'cTs2Zm57Bd18UPiT5JH1shbSd4XBBvdipCebMtwcnrZDH2sh2px2',
     'cPSDZ6VjeLEsSx6JYetJAajN1p5L5Vod8k5haQH9s2M4nyS48NnW']
-  var privKeys = privKeysWIF.map((x) => zencashjs.address.WIFToPrivKey(x))
-  var pubKeys = privKeys.map((x) => zencashjs.address.privKeyToPubKey(x, true))
+  const privKeys = privKeysWIF.map((x) => zencashjs.address.WIFToPrivKey(x))
+  const pubKeys = privKeys.map((x) => zencashjs.address.privKeyToPubKey(x, true))
   // var addresses = pubKeys.map((x) => zencashjs.address.pubKeyToAddr(x, '2098'))
-  var redeemScript = zencashjs.address.mkMultiSigRedeemScript(pubKeys, 2, 5)
+  const redeemScript = zencashjs.address.mkMultiSigRedeemScript(pubKeys, 2, 5)
   // var multiSigAddress = zencashjs.address.multiSigRSToAddress(redeemScript, '2092')
 
   const blockHeight = 15600
   const blockHash = '0214c87f3f06ab6a22325da40f3c2066838fd50e75e1e0dc0205935fcbb79ec8'
 
-  var txobj = zencashjs.transaction.createRawTx(
+  const txobj = zencashjs.transaction.createRawTx(
     [{
       txid: 'd6f04de4f1ab745d8d7d3d6846b718b3bef4baf857af4f26e3847162317982d9',
       vout: 0,
@@ -105,14 +105,27 @@ it('multiSign() for x-of-5 should be deterministic', function () {
   )
 
   // Prepare our signatures for mutli-sig
-  var sig1 = zencashjs.transaction.multiSign(txobj, 0, privKeys[0], redeemScript)
-  var sig2 = zencashjs.transaction.multiSign(txobj, 0, privKeys[1], redeemScript)
-  var tx0 = zencashjs.transaction.applyMultiSignatures(txobj, 0, [sig1, sig2], redeemScript)
+  const sig1 = zencashjs.transaction.multiSign(txobj, 0, privKeys[0], redeemScript)
+  const sig2 = zencashjs.transaction.multiSign(txobj, 0, privKeys[1], redeemScript)
+  const tx0 = zencashjs.transaction.applyMultiSignatures(txobj, 0, [sig1, sig2], redeemScript)
+  const tx0Serialized = zencashjs.transaction.serializeTx(tx0)
 
-  // Serialize the transaction
-  var serializedTx = zencashjs.transaction.serializeTx(tx0)
+  const txObjSig1 = zencashjs.transaction.applyMultiSignatures(txobj, 0, [sig1], redeemScript)
+  const tx1 = zencashjs.transaction.applyMultiSignatures(txObjSig1, 0, [sig2], redeemScript)
+  const tx1Serialized = zencashjs.transaction.serializeTx(tx1)
 
-  expect(serializedTx).to.equal('0100000001d9827931627184e3264faf57f8baf4beb318b746683d7d8d5d74abf1e44df0d600000000fd40010047304402207c349f3598d8e1ab3bc207074686d1e909d3e5704cd13ec68b973bed0f5317d80220623927b46ab45ce2c0b4864dd2b7b6867fd3a78e05d9590e2a59cb2cbef512ca01473044022052a34052dcca05b80e7dbdf419d96ad08bf2f70a5babd5ebf9c07719cf23535002202e83430d40eaed523bfda739651ef1e1baabd596e80aed2923cfc1b1692b2e41014cad522103e05e33c3322eebb714a070b3a3d8c4d8df24afaa954b73588fb93d225459a8ec21036e8b46ab143d44946080dfe980ff4b17df278e49bae86002c613b23732b20af32103184c5dad8794b6d9b129748e4bb6f7cc56de42bc05e48f2a09521f8018e637e12103b9119362574b8ce5812f72f23e9bca338a90c4f47dfd0dbb3b9e7aa596b422ad2102d52494ff1c42d4e5dd81bc4940368e15137bb62f0963300217291d11682ccc2255aeffffffff0100f2052a010000003f76a914ab523674d9f2ed5a0b300aeb072fc09801363f9f88ac20c89eb7cb5f930502dce0e1750ed58f8366203c0fa45d32226aab063f7fc8140203f03c00b400000000')
+  const txObjSig2 = zencashjs.transaction.applyMultiSignatures(txobj, 0, [sig2], redeemScript)
+  const tx2 = zencashjs.transaction.applyMultiSignatures(txObjSig2, 0, [sig1], redeemScript)
+  const tx2Serialized = zencashjs.transaction.serializeTx(tx2)
+
+  // signatures can be applied at once or at different times.
+  expect(tx0Serialized).to.equal(tx1Serialized)
+  expect(tx0Serialized).to.equal(tx2Serialized)
+
+  // The order of signatures should not affect the final result
+  expect(tx1Serialized).to.equal(tx2Serialized)
+
+  expect(tx0Serialized).to.equal('0100000001d9827931627184e3264faf57f8baf4beb318b746683d7d8d5d74abf1e44df0d600000000fd40010047304402207c349f3598d8e1ab3bc207074686d1e909d3e5704cd13ec68b973bed0f5317d80220623927b46ab45ce2c0b4864dd2b7b6867fd3a78e05d9590e2a59cb2cbef512ca01473044022052a34052dcca05b80e7dbdf419d96ad08bf2f70a5babd5ebf9c07719cf23535002202e83430d40eaed523bfda739651ef1e1baabd596e80aed2923cfc1b1692b2e41014cad522103e05e33c3322eebb714a070b3a3d8c4d8df24afaa954b73588fb93d225459a8ec21036e8b46ab143d44946080dfe980ff4b17df278e49bae86002c613b23732b20af32103184c5dad8794b6d9b129748e4bb6f7cc56de42bc05e48f2a09521f8018e637e12103b9119362574b8ce5812f72f23e9bca338a90c4f47dfd0dbb3b9e7aa596b422ad2102d52494ff1c42d4e5dd81bc4940368e15137bb62f0963300217291d11682ccc2255aeffffffff0100f2052a010000003f76a914ab523674d9f2ed5a0b300aeb072fc09801363f9f88ac20c89eb7cb5f930502dce0e1750ed58f8366203c0fa45d32226aab063f7fc8140203f03c00b400000000')
 })
 
 it('multiSign() and applyMultiSignatures() and should be deterministic', function () {
@@ -169,7 +182,7 @@ it('multiSign() and applyMultiSignatures() and should be deterministic', functio
 
 it('addressToScript should be deterministic for both P2SH and P2PKH on mainnet and testnet', function () {
   const addr1 = 'zt27CUh1tqguUvQrcBNpDHtd13adRauiqLX'; // mainnet P2SH
-  const addr2 = 'znWXtfAwMMzRFe9Y5u1E8qMhrMWcKodi6KX'; 
+  const addr2 = 'znWXtfAwMMzRFe9Y5u1E8qMhrMWcKodi6KX';
   const addr3 = 'ztimpo6bUJk8ngMpRXf3yyhTZBMDLQrDQJD'; // testnet
 
   const blockHeight = 142091
@@ -177,4 +190,43 @@ it('addressToScript should be deterministic for both P2SH and P2PKH on mainnet a
   expect(zencashjs.transaction.addressToScript(addr1, blockHeight, blockHash, '')).to.equal('a914ed3f0f01c90f41ff665570d38f070c1ee8c075fe87205230ff2fd4a08b46c9708138ba45d4ed480aed088402d81dce274ecf01000000030b2b02b4');
   expect(zencashjs.transaction.addressToScript(addr2, blockHeight, blockHash, '')).to.equal('76a9143bc25502467ba509b9fb3680148a12b89c56247088ac205230ff2fd4a08b46c9708138ba45d4ed480aed088402d81dce274ecf01000000030b2b02b4');
   expect(zencashjs.transaction.addressToScript(addr3, blockHeight, blockHash, '')).to.equal('76a914ab523674d9f2ed5a0b300aeb072fc09801363f9f88ac205230ff2fd4a08b46c9708138ba45d4ed480aed088402d81dce274ecf01000000030b2b02b4');
+})
+
+it ('2 of 3 and 2 of 2 multisig test', function() {
+  var privKeysWIF2 = ['KxU4LGtnSWYNyaqGrASsVQrdhLjXaTxNfkNr6RhmS4n2cq8HaT3P', 'KwZrg9yGTaDJcQuy6QD2qRLGFiev85uV3rLuN2oaLKmHB45Nneso']
+  var privKeysWIF3 = ['KxU4LGtnSWYNyaqGrASsVQrdhLjXaTxNfkNr6RhmS4n2cq8HaT3P', 'KwZrg9yGTaDJcQuy6QD2qRLGFiev85uV3rLuN2oaLKmHB45Nneso', 'Kz6bk2iz2qWRQvTiCKdeS7YAXcbSrRhreBNoxfJJBhtJxTUuiQYg']
+
+  var privKeys2 = privKeysWIF2.map((x) => zencashjs.address.WIFToPrivKey(x))
+  var privKeys3 = privKeysWIF3.map((x) => zencashjs.address.WIFToPrivKey(x))
+  var pubKeys2 = privKeys2.map((x) => zencashjs.address.privKeyToPubKey(x, true))
+  var pubKeys3 = privKeys3.map((x) => zencashjs.address.privKeyToPubKey(x, true))
+
+  const bip115BlockHeight = 142091
+  const bip115BlockHash = '00000001cf4e27ce1dd8028408ed0a48edd445ba388170c9468ba0d42fff3052'
+
+  var txobj = zencashjs.transaction.createRawTx(
+    [{
+      txid: '4f23a3cc63e23d72c0d78e571cda5592d1a9dc96ebc0e418c89fde2da443bc28', vout: 0,
+      scriptPubKey: ''
+    }],
+    [{address: 'znnpwiiu2ip5J1avwc8mx9AYugEa4uPsztH', satoshis: 50000}],
+    bip115BlockHeight,
+    bip115BlockHash
+  )
+
+  // 2-of-3
+  var redeemScript2of3 = zencashjs.address.mkMultiSigRedeemScript(pubKeys3, 2, 3)
+  var sig1 = zencashjs.transaction.multiSign(txobj, 0, privKeys3[0], redeemScript2of3)
+  var sig2 = zencashjs.transaction.multiSign(txobj, 0, privKeys3[1], redeemScript2of3)
+  var tx2of3 = zencashjs.transaction.applyMultiSignatures(txobj, 0, [sig1, sig2], redeemScript2of3)
+  var serializedTx2of3 = zencashjs.transaction.serializeTx(tx2of3)
+  expect(serializedTx2of3).to.equal('010000000128bc43a42dde9fc818e4c0eb96dca9d19255da1c578ed7c0723de263cca3234f00000000fc0047304402206797e487ffa0ccdd3e4cd965cf9b41eaa8a1fd957b44bdb5187a1fe62312c9a60220543fbc37abba9f295754d618f1f08b0480fef6802b19ae48427a59a4641bc81d0147304402200b4c53ab248a71251f480035410ecf9ebecc65852ceec28c9fecd496ef517cdf0220705f4e8a4945e99525fdb3690590cad59ef7e4d263f03aa6a7838ba737315af4014c69522103242158c89a5b8e8ec43109aaef3af5f38663fb386e938449223093b3489dce7821025a64a7dd8a22a8c02b5889c444b785d0708aa00ee7e47ba2507a9551bd23bf6f21033112c1f918a46d8a1b09f1c75ccbc61d96e0c87981305c7bb30af21ba775736453aeffffffff0150c30000000000003f76a914ee7df8a9a481cd7338ee41c5a2557ffa985eaa1e88ac205230ff2fd4a08b46c9708138ba45d4ed480aed088402d81dce274ecf01000000030b2b02b400000000')
+
+  // 2-of-2
+  var redeemScript2of2 = zencashjs.address.mkMultiSigRedeemScript(pubKeys2, 2, 2)
+  var sig1 = zencashjs.transaction.multiSign(txobj, 0, privKeys2[0], redeemScript2of2)
+  var sig2 = zencashjs.transaction.multiSign(txobj, 0, privKeys2[1], redeemScript2of2)
+  var tx2of2 = zencashjs.transaction.applyMultiSignatures(txobj, 0, [sig1, sig2], redeemScript2of2)
+  var serializedTx2of2 = zencashjs.transaction.serializeTx(tx2of2)
+  expect(serializedTx2of2).to.equal('010000000128bc43a42dde9fc818e4c0eb96dca9d19255da1c578ed7c0723de263cca3234f00000000d90047304402207bf91cf8c2832c40dbb2741f01384d3b17795e9bcb77460b6c3fa19226620b730220662a0de28576e9322be0bd9b842e84624663455699b050e7a11c0af1e025278a0147304402201640dc9c57a197bd619e182ea32011a0a8b167862ac2b77b852f7f463092f65d02200ae0f62d16d2e948e765ceca19a82c1a1415dbffe79726baaa102555eae284bf0147522103242158c89a5b8e8ec43109aaef3af5f38663fb386e938449223093b3489dce7821025a64a7dd8a22a8c02b5889c444b785d0708aa00ee7e47ba2507a9551bd23bf6f52aeffffffff0150c30000000000003f76a914ee7df8a9a481cd7338ee41c5a2557ffa985eaa1e88ac205230ff2fd4a08b46c9708138ba45d4ed480aed088402d81dce274ecf01000000030b2b02b400000000')
 })
